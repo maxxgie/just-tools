@@ -1,0 +1,8 @@
+{
+  "name": "nmap-js",
+  "version": "1.0.0",
+  "description": "Terminal network scanner (nmap-like) in Node.js",
+  "bin": { "nmap": "./bin/nmap" },
+  "main": "src/index.js",
+  "type": "module"
+}
