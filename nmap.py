@@ -48,6 +48,7 @@ def parse_ports(spec, top):
 
 def tcp_connect(host,port,timeout):
     try:
+        fam = socket.AF_INET6 if ":" in host else socket.AF_INET
         s=socket.create_connection((host,port),timeout=timeout)
         s.settimeout(0.3)
         try:
