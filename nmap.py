@@ -182,7 +182,10 @@ def main():
             osv = None
         scripts={}
         if args.scripts:
+            names = []
             for s in args.scripts:
+                names.extend([x.strip() for x in s.split(",") if x.strip()])
+            for s in names:
                 for pr in port_results:
                     scripts[f"{pr['port']}/{s}"]=script_run(s, host, pr["port"], pr.get("banner",""))
         res={"host":host,"ports":port_results,"os":osv,"scripts":scripts}
