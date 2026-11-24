@@ -81,11 +81,14 @@ def os_guess(open_ports):
     if 80 in open_ports or 443 in open_ports: return "Network device / Web server"
     return "Unknown"
 
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     import scripts as nse
     HAVE_SCRIPTS = True
-except Exception:
+except Exception as e:
     HAVE_SCRIPTS = False
+    _scripts_err = str(e)
 
 def script_run(name, host, port, banner):
     if HAVE_SCRIPTS:
