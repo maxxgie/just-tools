@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 import argparse, socket, ipaddress, concurrent.futures, json, xml.etree.ElementTree as ET, time, sys
+try:
+    import rawscan
+    HAVE_RAW = True
+except Exception:
+    HAVE_RAW = False
 
 TOP_PORTS = [21,22,23,25,53,80,110,111,135,139,143,443,445,993,995,1723,3306,3389,5900,8080,8443]
 SVC_MAP = {21:"ftp",22:"ssh",23:"telnet",25:"smtp",53:"domain",80:"http",110:"pop3",143:"imap",443:"https",445:"microsoft-ds",3306:"mysql",3389:"ms-wbt-server",5432:"postgres",6379:"redis",27017:"mongodb",8080:"http-proxy"}
@@ -50,6 +55,12 @@ def tcp_connect(host,port,timeout):
         return False, ""
 
 def host_alive(host, timeout):
+    if HAVE_RAW:
+        r = rawscan.icmp_ping(host, timeout)
+        if r is True:
+            return True
+        if r is None:
+            pass
     for p in (80,443,22,445):
         ok,_=tcp_connect(host,p,timeout)
         if ok: return True
@@ -112,11 +123,18 @@ def main():
         open_ports=[]
         port_results=[]
         def scan_port(p):
-            ok,banner=tcp_connect(host,p,timeout)
+            if args.scan == "syn" and HAVE_RAW:
+                state = rawscan.raw_syn_scan(host, p, timeout)
+                if state == "open":
+                    ok, banner = tcp_connect(host, p, timeout) if args.svc else (True, "")
+                    svc = SVC_MAP.get(p, "unknown") if args.svc else ""
+                    return {"port": p, "open": True, "svc": svc, "ver": banner if args.svc else "", "banner": banner}
+                return {"port": p, "open": False}
+            ok, banner = tcp_connect(host, p, timeout)
             if ok:
-                svc= SVC_MAP.get(p,"unknown") if args.svc else ""
-                return {"port":p,"open":True,"svc":svc,"ver":banner if args.svc else "","banner":banner}
-            return {"port":p,"open":False}
+                svc = SVC_MAP.get(p, "unknown") if args.svc else ""
+                return {"port": p, "open": True, "svc": svc, "ver": banner if args.svc else "", "banner": banner}
+            return {"port": p, "open": False}
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(conc,len(ports) or 1)) as ex:
             for r in ex.map(scan_port, ports):
                 if r["open"]:
