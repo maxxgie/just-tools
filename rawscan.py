@@ -125,5 +125,72 @@ def icmp_ping(dst_ip, timeout=2):
             return True
     s.close()
     return False
+
+def os_fingerprint_ttl(dst_ip, dst_port=80, timeout=2):
+    """Return (ttl, window) from SYN-ACK response, or (None,None)."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
+    except PermissionError:
+        return None, None
+    s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+    src_port = random.randrange(1024, 65535)
+    try:
+        src_ip = socket.gethostbyname(socket.gethostname())
+    except Exception:
+        src_ip = "127.0.0.1"
+    pkt = build_tcp_syn(src_ip, dst_ip, src_port, dst_port)
+    s.sendto(pkt, (dst_ip, 0))
+    s.settimeout(timeout)
+    end = time.time() + timeout
+    while time.time() < end:
+        try:
+            data, _ = s.recvfrom(65535)
+        except socket.timeout:
+            break
+        if len(data) < 40:
+            continue
+        ip_hdr = data[:20]
+        if ip_hdr[9] != socket.IPPROTO_TCP:
+            continue
+        src = socket.inet_ntoa(ip_hdr[12:16])
+        dst = socket.inet_ntoa(ip_hdr[16:20])
+        if src != dst_ip or dst != src_ip:
+            continue
+        ttl = ip_hdr[8]
+        ihl = (ip_hdr[0] & 0x0f) * 4
+        tcp = data[ihl:ihl+20]
+        window = struct.unpack("!H", tcp[14:16])[0]
+        flags = tcp[13]
+        sport = struct.unpack("!H", tcp[0:2])[0]
+        dport = struct.unpack("!H", tcp[2:4])[0]
+        if dport == src_port and sport == dst_port and (flags & 0x12) == 0x12:
+            s.close()
+            return ttl, window
+    s.close()
+    return None, None
+
+def os_guess_advanced(ttl, window, open_ports):
+    # TTL-based OS fingerprinting
+    if ttl is None:
+        return os_guess(open_ports) if 'os_guess' in globals() else None
+    if ttl <= 64:
+        base = "Linux/Unix"
+    elif ttl <= 128:
+        base = "Windows"
+    elif ttl <= 255:
+        base = "Cisco/Network device"
+    else:
+        base = "Unknown"
+    # refine by window size
+    if window in (65535, 29200, 64240):
+        base += " (Linux-like window)"
+    elif window in (8192, 64512, 4128):
+        base += " (Windows-like window)"
+    # port-based refinement
+    if 22 in open_ports and 3389 not in open_ports:
+        base = "Linux/Unix"
+    if 3389 in open_ports or 445 in open_ports:
+        base = "Windows"
+    return base
 EOF
 echo created

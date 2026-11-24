@@ -141,7 +141,17 @@ def main():
                     open_ports.append(r["port"])
                     port_results.append(r)
                     if args.verbose: print(f"  {host}:{r['port']} open {r['svc']} {r['ver']}")
-        osv=os_guess(open_ports) if args.osdet else None
+        if args.osdet:
+            ttl, win = (None, None)
+            if HAVE_RAW and open_ports:
+                port_for_probe = open_ports[0] if open_ports else 80
+                ttl, win = rawscan.os_fingerprint_ttl(host, port_for_probe, timeout)
+            if ttl is not None:
+                osv = rawscan.os_guess_advanced(ttl, win, open_ports)
+            else:
+                osv = os_guess(open_ports)
+        else:
+            osv = None
         scripts={}
         if args.scripts:
             for s in args.scripts:
