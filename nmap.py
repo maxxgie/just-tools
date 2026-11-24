@@ -90,6 +90,11 @@ try:
 except Exception as e:
     HAVE_SCRIPTS = False
     _scripts_err = str(e)
+try:
+    import extras
+    HAVE_EXTRAS = True
+except Exception:
+    HAVE_EXTRAS = False
 
 def script_run(name, host, port, banner):
     # inline implementations (always available)
@@ -125,7 +130,24 @@ def main():
     ap.add_argument("--top-ports", dest="top", type=int, default=0)
     ap.add_argument("--script", dest="scripts", action="append", default=[])
     ap.add_argument("--exclude", dest="exclude", default="")
+    ap.add_argument("--rate", dest="rate", type=float, default=0)
+    ap.add_argument("--traceroute", dest="traceroute", action="store_true")
+    ap.add_argument("--config", dest="config")
+    ap.add_argument("--log", dest="logfile")
+    ap.add_argument("--resume", dest="resume")
     args=ap.parse_args()
+
+    if args.config and HAVE_EXTRAS:
+        cfg = extras.load_config(args.config)
+        if cfg.get("rate") and not args.rate:
+            args.rate = cfg["rate"]
+        if cfg.get("timing") and args.timing == 3:
+            args.timing = cfg["timing"]
+    if args.logfile and HAVE_EXTRAS:
+        extras.setup_logging(args.logfile)
+
+    limiter = extras.RateLimiter(args.rate) if HAVE_EXTRAS and args.rate else None
+    resumed = set(extras.load_resume(args.resume)) if args.resume and HAVE_EXTRAS else set()
 
     hosts=parse_targets(args.targets, args.exclude.split(",") if args.exclude else [])
     ports=[] if args.hostonly else parse_ports(args.ports, args.top)
@@ -135,6 +157,13 @@ def main():
 
     results=[]
     for host in hosts:
+        if host in resumed:
+            print(f"Skipping {host} (resumed)")
+            continue
+        if args.traceroute and HAVE_EXTRAS:
+            print(f"Traceroute to {host}:")
+            for hop, addr in extras.traceroute(host):
+                print(f"  {hop:2d} {addr}")
         if not args.skiphost and not args.hostonly:
             if not host_alive(host, timeout):
                 print(f"Host {host} seems down."); continue
@@ -147,6 +176,8 @@ def main():
         adaptive_conc = conc
         failed = 0
         def scan_port(p):
+            if limiter:
+                limiter.wait()
             if args.scan == "syn" and HAVE_RAW:
                 state = rawscan.raw_syn_scan(host, p, adaptive_timeout)
                 if state == "open":
