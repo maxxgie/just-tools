@@ -143,9 +143,12 @@ def main():
         print(f"\nScanning {host}...")
         open_ports=[]
         port_results=[]
+        adaptive_timeout = timeout
+        adaptive_conc = conc
+        failed = 0
         def scan_port(p):
             if args.scan == "syn" and HAVE_RAW:
-                state = rawscan.raw_syn_scan(host, p, timeout)
+                state = rawscan.raw_syn_scan(host, p, adaptive_timeout)
                 if state == "open":
                     ok, banner = tcp_connect(host, p, timeout) if args.svc else (True, "")
                     svc = SVC_MAP.get(p, "unknown") if args.svc else ""
@@ -164,12 +167,17 @@ def main():
                     ver = banner if args.svc else ""
                 return {"port": p, "open": True, "svc": svc, "ver": ver, "banner": banner}
             return {"port": p, "open": False}
-        with concurrent.futures.ThreadPoolExecutor(max_workers=min(conc,len(ports) or 1)) as ex:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(adaptive_conc,len(ports) or 1)) as ex:
             for r in ex.map(scan_port, ports):
                 if r["open"]:
                     open_ports.append(r["port"])
                     port_results.append(r)
                     if args.verbose: print(f"  {host}:{r['port']} open {r['svc']} {r['ver']}")
+                else:
+                    failed += 1
+                    if failed > len(ports) * 0.8:
+                        adaptive_timeout = min(adaptive_timeout * 1.5, 10)
+                        adaptive_conc = max(1, adaptive_conc // 2)
         if args.osdet:
             ttl, win = (None, None)
             if HAVE_RAW and open_ports:
