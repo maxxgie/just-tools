@@ -81,12 +81,18 @@ def os_guess(open_ports):
     if 80 in open_ports or 443 in open_ports: return "Network device / Web server"
     return "Unknown"
 
-def script_run(name, banner):
-    if name=="banner": return (banner or "no banner")[:200]
-    if name=="http-title":
-        import re
-        m=re.search(r"<title>([^<]*)</title>", banner or "", re.I)
-        return m.group(1) if m else "no title"
+try:
+    import scripts as nse
+    HAVE_SCRIPTS = True
+except Exception:
+    HAVE_SCRIPTS = False
+
+def script_run(name, host, port, banner):
+    if HAVE_SCRIPTS:
+        return nse.run(name, host, port, banner)
+    # fallback
+    if name == "banner":
+        return (banner or "no banner")[:200]
     return "script not found"
 
 def main():
@@ -169,7 +175,7 @@ def main():
         if args.scripts:
             for s in args.scripts:
                 for pr in port_results:
-                    scripts[f"{pr['port']}/{s}"]=script_run(s, pr.get("banner",""))
+                    scripts[f"{pr['port']}/{s}"]=script_run(s, host, pr["port"], pr.get("banner",""))
         res={"host":host,"ports":port_results,"os":osv,"scripts":scripts}
         results.append(res)
         print(f"\nNmap scan report for {host}")
