@@ -141,6 +141,8 @@ def main():
                     svc, ver = probes.probe(host, p, timeout)
                     if not svc:
                         svc = SVC_MAP.get(p, "unknown")
+                    if not ver and banner:
+                        ver = banner.splitlines()[0][:120] if banner else ""
                 else:
                     svc = SVC_MAP.get(p, "unknown") if args.svc else ""
                     ver = banner if args.svc else ""
