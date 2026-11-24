@@ -91,11 +91,17 @@ except Exception as e:
     _scripts_err = str(e)
 
 def script_run(name, host, port, banner):
-    if HAVE_SCRIPTS:
-        return nse.run(name, host, port, banner)
-    # fallback
+    # inline implementations (always available)
     if name == "banner":
         return (banner or "no banner")[:200]
+    if name == "http-title":
+        import re
+        m = re.search(r"<title>([^<]*)</title>", banner or "", re.I)
+        return m.group(1) if m else "no title"
+    if name == "ssh-hostkey":
+        return (banner or "")[:120]
+    if HAVE_SCRIPTS:
+        return nse.run(name, host, port, banner)
     return "script not found"
 
 def main():
