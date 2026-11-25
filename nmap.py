@@ -135,6 +135,9 @@ def main():
     ap.add_argument("--config", dest="config")
     ap.add_argument("--log", dest="logfile")
     ap.add_argument("--resume", dest="resume")
+    ap.add_argument("--fragment", dest="fragment", action="store_true")
+    ap.add_argument("--decoy", dest="decoy")
+    ap.add_argument("--ttl", dest="ttl", type=int, default=64)
     args=ap.parse_args()
 
     if args.config and HAVE_EXTRAS:
@@ -179,7 +182,8 @@ def main():
             if limiter:
                 limiter.wait()
             if args.scan == "syn" and HAVE_RAW:
-                state = rawscan.raw_syn_scan(host, p, adaptive_timeout)
+                decoys = args.decoy.split(",") if args.decoy else None
+                state = rawscan.raw_syn_scan(host, p, adaptive_timeout, frag=args.fragment, ttl=args.ttl, decoys=decoys)
                 if state == "open":
                     ok, banner = tcp_connect(host, p, timeout) if args.svc else (True, "")
                     svc = SVC_MAP.get(p, "unknown") if args.svc else ""

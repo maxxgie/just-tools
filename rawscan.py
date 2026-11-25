@@ -12,15 +12,15 @@ def checksum(data):
     s += s >> 16
     return ~s & 0xffff
 
-def build_tcp_syn(src_ip, dst_ip, src_port, dst_port):
+def build_tcp_syn(src_ip, dst_ip, src_port, dst_port, frag=False, ttl=64):
     # IP header
     ip_ihl = 5
     ip_ver = 4
     ip_tos = 0
     ip_tot_len = 20 + 20
     ip_id = random.randrange(0, 65536)
-    ip_frag_off = 0
-    ip_ttl = 64
+    ip_frag_off = 0x2000 if frag else 0  # MF flag for fragmentation
+    ip_ttl = ttl
     ip_proto = socket.IPPROTO_TCP
     ip_check = 0
     ip_saddr = socket.inet_aton(src_ip)
@@ -51,19 +51,25 @@ def build_tcp_syn(src_ip, dst_ip, src_port, dst_port):
         (tcp_doff << 4), tcp_flags, tcp_window, tcp_check, tcp_urg_ptr)
     return ip_header + tcp_header
 
-def raw_syn_scan(dst_ip, dst_port, timeout=2):
+def raw_syn_scan(dst_ip, dst_port, timeout=2, frag=False, ttl=64, decoys=None):
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
     except PermissionError:
         return None  # no raw capability
     s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
     src_port = random.randrange(1024, 65535)
-    # determine src ip
     try:
         src_ip = socket.gethostbyname(socket.gethostname())
     except Exception:
         src_ip = "127.0.0.1"
-    pkt = build_tcp_syn(src_ip, dst_ip, src_port, dst_port)
+    if decoys:
+        for d in decoys:
+            try:
+                decoy_pkt = build_tcp_syn(d, dst_ip, random.randrange(1024, 65535), dst_port, frag=frag, ttl=ttl)
+                s.sendto(decoy_pkt, (dst_ip, 0))
+            except Exception:
+                pass
+    pkt = build_tcp_syn(src_ip, dst_ip, src_port, dst_port, frag=frag, ttl=ttl)
     s.sendto(pkt, (dst_ip, 0))
     s.settimeout(timeout)
     end = time.time() + timeout
