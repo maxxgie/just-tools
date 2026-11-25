@@ -95,6 +95,11 @@ try:
     HAVE_EXTRAS = True
 except Exception:
     HAVE_EXTRAS = False
+try:
+    import advanced
+    HAVE_ADV = True
+except Exception:
+    HAVE_ADV = False
 
 def script_run(name, host, port, banner):
     # inline implementations (always available)
@@ -138,6 +143,9 @@ def main():
     ap.add_argument("--fragment", dest="fragment", action="store_true")
     ap.add_argument("--decoy", dest="decoy")
     ap.add_argument("--ttl", dest="ttl", type=int, default=64)
+    ap.add_argument("--tls", dest="tls", action="store_true")
+    ap.add_argument("--dns", dest="dns", action="store_true")
+    ap.add_argument("--crawl", dest="crawl", action="store_true")
     args=ap.parse_args()
 
     if args.config and HAVE_EXTRAS:
@@ -181,6 +189,9 @@ def main():
         def scan_port(p):
             if limiter:
                 limiter.wait()
+            if args.scan == "udp" and HAVE_ADV:
+                state = advanced.udp_scan(host, p, adaptive_timeout)
+                return {"port": p, "open": state == "open", "svc": "", "ver": "", "banner": ""}
             if args.scan == "syn" and HAVE_RAW:
                 decoys = args.decoy.split(",") if args.decoy else None
                 state = rawscan.raw_syn_scan(host, p, adaptive_timeout, frag=args.fragment, ttl=args.ttl, decoys=decoys)
@@ -243,6 +254,17 @@ def main():
                 if k.startswith(str(p['port'])+"/"):
                     print(f"|_{k.split('/')[1]}: {v}")
         if not port_results: print("No open ports found.")
+        if args.dns and HAVE_ADV:
+            name = advanced.reverse_dns(host)
+            if name: print(f"Reverse DNS: {name}")
+        if args.tls and HAVE_ADV and 443 in open_ports:
+            info = advanced.tls_info(host, 443)
+            if info and "error" not in info:
+                print(f"TLS: {info.get('protocol')} cipher={info.get('cipher')}")
+        if args.crawl and HAVE_ADV and (80 in open_ports or 8080 in open_ports):
+            port = 80 if 80 in open_ports else 8080
+            links = advanced.crawl(host, port)
+            if links: print("Links: " + ", ".join(links[:10]))
 
     out=None; fmt=None
     if args.outN: out=args.outN; fmt="normal"
