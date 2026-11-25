@@ -64,5 +64,35 @@ def crawl(host, port=80, timeout=3):
         return sorted(set(links))[:50]
     except Exception:
         return []
+
+def ftp_bounce_scan(proxy_host, proxy_port, target, port, timeout=3):
+    try:
+        s = socket.create_connection((proxy_host, proxy_port), timeout=timeout)
+        s.recv(1024)  # banner
+        s.sendall(b"USER anonymous\r\n"); s.recv(1024)
+        s.sendall(b"PASS probe\r\n"); s.recv(1024)
+        cmd = f"PORT {target.replace('.', ',')},{port//256},{port%256}\r\n"
+        s.sendall(cmd.encode()); s.recv(1024)
+        s.sendall(b"LIST\r\n")
+        data = b""
+        s.settimeout(timeout)
+        try:
+            while True:
+                chunk = s.recv(1024)
+                if not chunk: break
+                data += chunk
+        except socket.timeout:
+            pass
+        s.close()
+        if b"150" in data or b"226" in data:
+            return "open"
+        return "closed"
+    except Exception:
+        return "error"
+
+def idle_scan(zombie, target, port, timeout=3):
+    """Placeholder idle scan; requires raw spoofing (root)."""
+    # real implementation needs IP spoofing and zombie IPID tracking
+    return "requires raw spoofing support"
 EOF
 echo done
