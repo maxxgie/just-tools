@@ -149,9 +149,21 @@ def main():
     ap.add_argument("--ftp-bounce", dest="ftp_bounce")
     ap.add_argument("--idle", dest="idle")
     ap.add_argument("--profile", dest="profile", choices=["quick","full","stealth"])
+    ap.add_argument("-A", dest="aggro", action="store_true")
+    ap.add_argument("-F", dest="fast", action="store_true")
+    ap.add_argument("-q", dest="quick_alias", action="store_true")
+    ap.add_argument("-s", dest="stealth_alias", action="store_true")
     args=ap.parse_args()
     if HAVE_EXTRAS and args.profile:
         args = extras.apply_profile(args)
+    if args.aggro:
+        args.svc = True; args.osdet = True; args.scripts = (args.scripts or []) + ["banner","http-title"]
+    if args.fast:
+        args.top = 100; args.ports = ""
+    if args.quick_alias:
+        args.profile = "quick"; args = extras.apply_profile(args)
+    if args.stealth_alias:
+        args.profile = "stealth"; args = extras.apply_profile(args)
 
     if args.config and HAVE_EXTRAS:
         cfg = extras.load_config(args.config)
