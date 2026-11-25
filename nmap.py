@@ -100,6 +100,11 @@ try:
     HAVE_ADV = True
 except Exception:
     HAVE_ADV = False
+try:
+    import pro
+    HAVE_PRO = True
+except Exception:
+    HAVE_PRO = False
 
 def script_run(name, host, port, banner):
     # inline implementations (always available)
@@ -154,6 +159,12 @@ def main():
     ap.add_argument("-F", dest="fast", action="store_true")
     ap.add_argument("-q", dest="quick_alias", action="store_true")
     ap.add_argument("-s", dest="stealth_alias", action="store_true")
+    ap.add_argument("--dns-enum", dest="dns_enum", action="store_true")
+    ap.add_argument("--smb", dest="smb", action="store_true")
+    ap.add_argument("--vuln", dest="vuln", action="store_true")
+    ap.add_argument("--csv", dest="csv")
+    ap.add_argument("--html", dest="html")
+    ap.add_argument("--diff", dest="diff")
     args=ap.parse_args()
     if HAVE_EXTRAS and args.profile:
         args = extras.apply_profile(args)
@@ -296,6 +307,15 @@ def main():
             port = 80 if 80 in open_ports else 8080
             links = advanced.crawl(host, port)
             if links: print("Links: " + ", ".join(links[:10]))
+        if args.dns_enum and HAVE_PRO:
+            info = pro.dns_enum(host)
+            if info: print("DNS:", info)
+        if args.smb and HAVE_PRO and 445 in open_ports:
+            print("SMB:", pro.smb_enum(host))
+        if args.vuln and HAVE_PRO:
+            for pr in port_results:
+                vs = pro.vuln_check(host, pr["port"], pr.get("banner",""))
+                for v in vs: print(f"Vuln {pr['port']}: {v}")
 
     out=None; fmt=None
     if args.outN: out=args.outN; fmt="normal"
@@ -327,6 +347,18 @@ def main():
                 content+="\n"
         with open(out,"w") as f: f.write(content)
         print(f"\nSaved to {out}")
+    if args.csv and HAVE_PRO:
+        with open(args.csv,"w") as f: f.write(pro.export_csv(results))
+        print(f"Saved CSV to {args.csv}")
+    if args.html and HAVE_PRO:
+        with open(args.html,"w") as f: f.write(pro.export_html(results))
+        print(f"Saved HTML to {args.html}")
+    if args.diff and HAVE_PRO:
+        try:
+            with open(args.diff) as f: old = json.load(f)
+            print("Diff:", pro.diff_results(old, results))
+        except Exception as e:
+            print("Diff error:", e)
 
 if __name__=="__main__":
     main()
