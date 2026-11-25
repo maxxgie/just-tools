@@ -105,6 +105,11 @@ try:
     HAVE_PRO = True
 except Exception:
     HAVE_PRO = False
+try:
+    import power
+    HAVE_POWER = True
+except Exception:
+    HAVE_POWER = False
 
 def script_run(name, host, port, banner):
     # inline implementations (always available)
@@ -165,7 +170,22 @@ def main():
     ap.add_argument("--csv", dest="csv")
     ap.add_argument("--html", dest="html")
     ap.add_argument("--diff", dest="diff")
+    ap.add_argument("--parallel", dest="parallel", type=int, default=1)
+    ap.add_argument("--progress", dest="progress", action="store_true")
+    ap.add_argument("--daemon", dest="daemon", action="store_true")
+    ap.add_argument("--pdf", dest="pdf")
+    ap.add_argument("--nvd", dest="nvd")
+    ap.add_argument("--tls-ciphers", dest="tls_ciphers", action="store_true")
+    ap.add_argument("--smb-full", dest="smb_full", action="store_true")
+    ap.add_argument("--brute", dest="brute")
+    ap.add_argument("--zone-transfer", dest="zone")
+    ap.add_argument("--mac", dest="mac")
+    ap.add_argument("--plugin", dest="plugin")
     args=ap.parse_args()
+    if args.daemon and HAVE_POWER:
+        print("Starting daemon on :8080")
+        power.daemon()
+        return
     if HAVE_EXTRAS and args.profile:
         args = extras.apply_profile(args)
     if args.aggro:
@@ -210,6 +230,8 @@ def main():
         if args.hostonly:
             print(f"{host} is up."); results.append({"host":host,"ports":[],"os":None,"scripts":{}}); continue
         print(f"\nScanning {host}...")
+        if args.progress and HAVE_POWER:
+            print(power.progress(hosts.index(host)+1, len(hosts)))
         open_ports=[]
         port_results=[]
         adaptive_timeout = timeout
@@ -316,6 +338,14 @@ def main():
             for pr in port_results:
                 vs = pro.vuln_check(host, pr["port"], pr.get("banner",""))
                 for v in vs: print(f"Vuln {pr['port']}: {v}")
+        if args.tls_ciphers and HAVE_POWER and 443 in open_ports:
+            print("TLS ciphers:", power.tls_ciphers(host, 443))
+        if args.smb_full and HAVE_POWER and 445 in open_ports:
+            print("SMB:", power.smb_full(host))
+        if args.brute and HAVE_POWER and (80 in open_ports or 8080 in open_ports):
+            print("Brute:", power.web_brute(host, 80 if 80 in open_ports else 8080, args.brute))
+        if args.nvd and HAVE_POWER:
+            print("NVD:", power.nvd_lookup(args.nvd))
 
     out=None; fmt=None
     if args.outN: out=args.outN; fmt="normal"
@@ -359,6 +389,9 @@ def main():
             print("Diff:", pro.diff_results(old, results))
         except Exception as e:
             print("Diff error:", e)
+    if args.pdf and HAVE_POWER:
+        power.pdf_export(results, args.pdf)
+        print(f"Saved PDF to {args.pdf}")
 
 if __name__=="__main__":
     main()
