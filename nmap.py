@@ -219,7 +219,7 @@ def main():
             if args.scan == "syn" and HAVE_RAW:
                 decoys = args.decoy.split(",") if args.decoy else None
                 state = rawscan.raw_syn_scan(host, p, adaptive_timeout, frag=args.fragment, ttl=args.ttl, decoys=decoys)
-                if state is None:
+                if state in (None, "filtered"):
                     pass
                 else:
                     if state == "open":
