@@ -122,6 +122,7 @@ def main():
     ap.add_argument("-sS", dest="scan", action="store_const", const="syn", default="connect")
     ap.add_argument("-sT", dest="scan", action="store_const", const="connect")
     ap.add_argument("-sU", dest="scan", action="store_const", const="udp")
+    ap.add_argument("-sY", dest="scan", action="store_const", const="sctp")
     ap.add_argument("-sV", dest="svc", action="store_true")
     ap.add_argument("-O", dest="osdet", action="store_true")
     ap.add_argument("-sn", dest="hostonly", action="store_true")
@@ -215,6 +216,9 @@ def main():
                 return {"port": p, "open": state == "open", "svc": "", "ver": "", "banner": ""}
             if args.scan == "udp" and HAVE_ADV:
                 state = advanced.udp_scan(host, p, adaptive_timeout)
+                return {"port": p, "open": state == "open", "svc": "", "ver": "", "banner": ""}
+            if args.scan == "sctp" and HAVE_ADV:
+                state = advanced.sctp_scan(host, p, adaptive_timeout)
                 return {"port": p, "open": state == "open", "svc": "", "ver": "", "banner": ""}
             if args.scan == "syn" and HAVE_RAW:
                 decoys = args.decoy.split(",") if args.decoy else None

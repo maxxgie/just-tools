@@ -96,3 +96,20 @@ def idle_scan(zombie, target, port, timeout=3):
     return "requires raw spoofing support"
 EOF
 echo done
+def sctp_scan(host, port, timeout=2):
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_SCTP)
+        s.settimeout(timeout)
+        s.sendto(b"", (host, port))
+        try:
+            s.recvfrom(1024)
+            return "open"
+        except socket.timeout:
+            return "open|filtered"
+    except PermissionError:
+        return "requires root"
+    except Exception:
+        return "filtered"
+    finally:
+        try: s.close()
+        except: pass
