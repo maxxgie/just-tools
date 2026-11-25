@@ -219,11 +219,14 @@ def main():
             if args.scan == "syn" and HAVE_RAW:
                 decoys = args.decoy.split(",") if args.decoy else None
                 state = rawscan.raw_syn_scan(host, p, adaptive_timeout, frag=args.fragment, ttl=args.ttl, decoys=decoys)
-                if state == "open":
-                    ok, banner = tcp_connect(host, p, timeout) if args.svc else (True, "")
-                    svc = SVC_MAP.get(p, "unknown") if args.svc else ""
-                    return {"port": p, "open": True, "svc": svc, "ver": banner if args.svc else "", "banner": banner}
-                return {"port": p, "open": False}
+                if state is None:
+                    pass
+                else:
+                    if state == "open":
+                        ok, banner = tcp_connect(host, p, adaptive_timeout) if args.svc else (True, "")
+                        svc = SVC_MAP.get(p, "unknown") if args.svc else ""
+                        return {"port": p, "open": True, "svc": svc, "ver": banner if args.svc else "", "banner": banner}
+                    return {"port": p, "open": False}
             ok, banner = tcp_connect(host, p, timeout)
             if ok:
                 if args.svc and HAVE_PROBES:
