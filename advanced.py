@@ -113,3 +113,6 @@ def sctp_scan(host, port, timeout=2):
     finally:
         try: s.close()
         except: pass
+
+def mac_vendor(mac):
+    return __import__('pro').mac_lookup(mac) if False else "unknown"
