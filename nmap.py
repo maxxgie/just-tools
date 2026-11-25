@@ -148,7 +148,10 @@ def main():
     ap.add_argument("--crawl", dest="crawl", action="store_true")
     ap.add_argument("--ftp-bounce", dest="ftp_bounce")
     ap.add_argument("--idle", dest="idle")
+    ap.add_argument("--profile", dest="profile", choices=["quick","full","stealth"])
     args=ap.parse_args()
+    if HAVE_EXTRAS and args.profile:
+        args = extras.apply_profile(args)
 
     if args.config and HAVE_EXTRAS:
         cfg = extras.load_config(args.config)

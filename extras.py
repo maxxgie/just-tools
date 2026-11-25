@@ -53,3 +53,17 @@ def load_resume(path):
     return []
 EOF
 echo done
+PROFILES = {
+    "quick": {"ports": "1-1000", "timing": 4, "svc": True, "osdet": False},
+    "full": {"ports": "1-65535", "timing": 4, "svc": True, "osdet": True},
+    "stealth": {"ports": "1-1000", "timing": 2, "svc": True, "osdet": True, "fragment": True, "scan": "syn"},
+}
+
+def apply_profile(args):
+    prof = PROFILES.get(args.profile)
+    if not prof:
+        return args
+    for k, v in prof.items():
+        if hasattr(args, k):
+            setattr(args, k, v)
+    return args
